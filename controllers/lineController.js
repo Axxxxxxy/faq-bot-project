@@ -6,7 +6,6 @@ const {
   createStorePickupResponse
 } = require('../services/messageService');
 
-// LINE SDKクライアントインスタンス作成
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
@@ -14,6 +13,14 @@ const client = new line.Client({
 exports.handleLineWebhook = async (req, res) => {
   try {
     console.log('=== Webhook受信 ===');
+    
+    // 署名検証
+    const signature = req.headers['x-line-signature'];
+    if (!line.validateSignature(JSON.stringify(req.body), process.env.LINE_CHANNEL_SECRET, signature)) {
+      console.error('署名検証失敗');
+      return res.status(401).send('Unauthorized');
+    }
+    
     const events = req.body.events;
     console.log('受信イベント:', JSON.stringify(events, null, 2));
 
@@ -23,9 +30,8 @@ exports.handleLineWebhook = async (req, res) => {
         const replyToken = event.replyToken;
         console.log('ユーザー発言:', userMessage);
 
-        // ダミーリクエストかを判定
-        if (!replyToken || replyToken === 'DUMMY_REPLY_TOKEN') {
-          console.log('ダミーリクエストのためLINE APIリプライをスキップ');
+        if (!replyToken) {
+          console.log('無効なリプライトークン検出');
           continue;
         }
 
@@ -36,16 +42,14 @@ exports.handleLineWebhook = async (req, res) => {
           userMessage.includes('受け取り')
         ) {
           console.log('配送関連ワードを検出しました');
-
           const replyPayload = createDeliveryStatusQuickReply(replyToken);
-          console.log('クイックリプライメッセージを送信準備完了');
-
+          console.log('クイックリプライ送信準備');
           await client.replyMessage(replyPayload.replyToken, replyPayload.messages);
-          console.log('クイックリプライメッセージを送信しました');
+          console.log('クイックリプライ送信成功');
           continue;
         }
 
-        console.log('配送ワードではないため通常メッセージ応答');
+        console.log('配送ワード以外の通常応答');
         await client.replyMessage(replyToken, {
           type: 'text',
           text: 'ご質問内容をもう一度詳しく教えてください。'
@@ -72,7 +76,7 @@ exports.handleLineWebhook = async (req, res) => {
         }
 
         await client.replyMessage(event.replyToken, messages);
-        console.log('Postback応答を送信しました');
+        console.log('Postback応答送信成功');
       }
     }
 
