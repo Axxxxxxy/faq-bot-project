@@ -49,10 +49,52 @@ exports.handleLineWebhook = async (req, res) => {
           continue;
         }
 
-        console.log('配送ワード以外の通常応答');
+        console.log('配送ワード以外の通常応答 → クイックリプライ');
+
+        // ノーマッチ時にクイックリプライ返す
         await client.replyMessage(replyToken, {
           type: 'text',
-          text: 'ご質問内容をもう一度詳しく教えてください。'
+          text: '申し訳ありません、うまく認識できませんでした。もう一度メニューから選択してください。',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: { type: 'message', label: '注文・キャンセル', text: '注文・キャンセル' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '商品をさがす', text: '商品をさがす' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '商品サイズ', text: '商品サイズ' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '送料・配送', text: '送料・配送' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '返品・交換', text: '返品・交換' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '支払い方法', text: '支払い方法' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: '会員登録・ログイン', text: '会員登録・ログイン' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: 'クーポン・キャンペーン', text: 'クーポン・キャンペーン' }
+              },
+              {
+                type: 'action',
+                action: { type: 'message', label: 'よくある質問', text: 'よくある質問' }
+              }
+            ]
+          }
         });
       }
 
