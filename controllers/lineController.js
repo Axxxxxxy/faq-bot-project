@@ -1,4 +1,4 @@
-// 最終版 lineController.js（ユニクロ式＋自然言語柔軟対応＋設計図厳守版）
+// lineController.js（設計図完全準拠＋全フェーズ分岐版）
 
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
@@ -8,9 +8,9 @@ const sessionMap = new Map();
 const flexTargets = {
   '注文手順': { title: '注文手順', url: 'https://dummy-link.com/order-procedure' },
   '受け取り方法': { title: '受け取り方法', url: 'https://dummy-link.com/receive-method' },
-  '指定住所受取り': { title: '指定住所受取り', url: 'https://dummy-link.com/home-receive' },
-  '店舗受取り': { title: '店舗受取り', url: 'https://dummy-link.com/store-receive' },
-  'コンビニ受取り': { title: 'コンビニ受取り', url: 'https://dummy-link.com/conveni-receive' },
+  '指定住所受取り方法': { title: '指定住所受取り方法', url: 'https://dummy-link.com/home-receive' },
+  '店舗受取り方法': { title: '店舗受取り方法', url: 'https://dummy-link.com/store-receive' },
+  'コンビニ受取り方法': { title: 'コンビニ受取り方法', url: 'https://dummy-link.com/conveni-receive' },
   '配送日時の変更': { title: '配送日時の変更', url: 'https://dummy-link.com/datetime-change' },
   '店舗受取り方法': { title: '店舗受取り方法', url: 'https://dummy-link.com/store-receive-method' },
   'コンビニ受取り方法': { title: 'コンビニ受取り方法', url: 'https://dummy-link.com/conveni-receive-method' }
@@ -27,14 +27,8 @@ exports.handleLineWebhook = async (req, res) => {
       const userMessage = event.message.text.trim();
       let session = sessionMap.get(userId) || { phase: 'initial' };
 
-      const isSimpleDeliveryWord = (msg) => {
-        const cleaned = msg.replace(/[\s\n\r]/g, '');
-        return cleaned === '配送';
-      };
-
-      const matchKeyword = (msg, keywords) => {
-        return keywords.some(keyword => msg.includes(keyword));
-      };
+      const isSimpleDeliveryWord = (msg) => msg.replace(/[\s\n\r]/g, '') === '配送';
+      const matchKeyword = (msg, keywords) => keywords.some(keyword => msg.includes(keyword));
 
       if (isSimpleDeliveryWord(userMessage)) {
         session.phase = 'initial';
@@ -53,13 +47,12 @@ exports.handleLineWebhook = async (req, res) => {
           await sendQuickReply(event.replyToken, 'ご注文前のお問い合わせですね。以下からお選びください。', [
             { label: '送料', text: '送料' },
             { label: 'お届け日の目安', text: 'お届け日の目安' },
-            { label: '店舗受け取り', text: '店舗受け取り' },
+            { label: '店舗受け取り方法', text: '店舗受け取り方法' },
             { label: '配送日時の指定', text: '配送日時の指定' },
             { label: '配送先の変更', text: '配送先の変更' }
           ]);
           continue;
         }
-
         if (userMessage === 'ご注文後') {
           session.phase = 'ご注文後';
           sessionMap.set(userId, session);
@@ -71,6 +64,39 @@ exports.handleLineWebhook = async (req, res) => {
           ]);
           continue;
         }
+      }
+
+      if (session.phase === 'ご注文前' && userMessage === '店舗受け取り') {
+        session.phase = '店舗受取りフェーズ';
+        sessionMap.set(userId, session);
+        await sendQuickReply(event.replyToken, '店舗受け取りについて以下からお選びください。', [
+          { label: '概要・送料', text: '概要・送料' },
+          { label: '注文手順', text: '注文手順' },
+          { label: 'お届け予定日', text: 'お届け予定日' },
+          { label: '受け取り方法', text: '受け取り方法' }
+        ]);
+        continue;
+      }
+
+      if (session.phase === 'ご注文後' && userMessage === '配送予定日') {
+        session.phase = '配送予定日フェーズ';
+        sessionMap.set(userId, session);
+        await sendQuickReply(event.replyToken, '配送予定日について以下からお選びください。', [
+          { label: '指定住所受取り方法', text: '指定住所受取り方法' },
+          { label: '店舗受取り方法', text: '店舗受取り方法' },
+          { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
+        ]);
+        continue;
+      }
+
+      if (session.phase === 'ご注文後' && userMessage === '受け取り手順') {
+        session.phase = '受け取り手順フェーズ';
+        sessionMap.set(userId, session);
+        await sendQuickReply(event.replyToken, '受け取り方法について以下からお選びください。', [
+          { label: '店舗受取り方法', text: '店舗受取り方法' },
+          { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
+        ]);
+        continue;
       }
 
       if (flexTargets[userMessage]) {
