@@ -66,7 +66,7 @@ exports.handleLineWebhook = async (req, res) => {
         }
       }
 
-      if (session.phase === 'ご注文前' && userMessage === '店舗受け取り') {
+      if (session.phase === 'ご注文前' && userMessage === '店舗受け取り方法') {
         session.phase = '店舗受取りフェーズ';
         sessionMap.set(userId, session);
         await sendQuickReply(event.replyToken, '店舗受け取りについて以下からお選びください。', [
