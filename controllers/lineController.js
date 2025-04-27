@@ -1,4 +1,4 @@
-// 完全版 lineController.js（フェーズ管理型・落ち着いて作成）
+// 最終版 lineController.js（ユニクロ式＋配送ワードリセット＋文脈通過型）
 
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
@@ -17,32 +17,19 @@ exports.handleLineWebhook = async (req, res) => {
       const userMessage = event.message.text.trim();
       let session = sessionMap.get(userId) || { phase: 'initial' };
 
-      // --- 初回配送系トリガー ---
-      if (session.phase === 'initial') {
-        if (userMessage.includes('配送状況確認')) {
-          session.phase = '配送状況確認';
-          sessionMap.set(userId, session);
-          await sendQuickReply(event.replyToken, '配送状況確認ですね。以下からお選びください。', [
-            { label: '配送予定日', text: '配送予定日' },
-            { label: '配送の追跡', text: '配送の追跡' },
-            { label: '店舗受け取り', text: '店舗受け取り' }
-          ]);
-          continue;
-        }
-
-        if (userMessage.includes('配送')) {
-          session.phase = '配送';
-          sessionMap.set(userId, session);
-          await sendQuickReply(event.replyToken, '配送に関するお問い合わせですね。ご注文前・ご注文後どちらでしょうか？', [
-            { label: 'ご注文前', text: 'ご注文前' },
-            { label: 'ご注文後', text: 'ご注文後' }
-          ]);
-          continue;
-        }
+      // --- 「配送」ワードが来たらいつでもリセット ---
+      if (userMessage.includes('配送')) {
+        session.phase = 'initial';
+        sessionMap.set(userId, session);
+        await sendQuickReply(event.replyToken, '配送に関するお問い合わせですね。ご注文前・ご注文後どちらでしょうか？', [
+          { label: 'ご注文前', text: 'ご注文前' },
+          { label: 'ご注文後', text: 'ご注文後' }
+        ]);
+        continue;
       }
 
-      // --- 配送フェーズ ---
-      if (session.phase === '配送') {
+      // --- 初回：注文前・注文後の選択肢 ---
+      if (session.phase === 'initial') {
         if (userMessage === 'ご注文前') {
           session.phase = 'ご注文前';
           sessionMap.set(userId, session);
