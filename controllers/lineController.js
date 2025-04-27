@@ -1,9 +1,20 @@
-// 最終版 lineController.js（ユニクロ式＋自然言語柔軟対応＋フェーズ完全網羅＋配送状況確認追加）
+// 最終版 lineController.js（ユニクロ式＋自然言語柔軟対応＋設計図厳守版）
 
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
 
 const sessionMap = new Map();
+
+const flexTargets = {
+  '注文手順': { title: '注文手順', url: 'https://dummy-link.com/order-procedure' },
+  '受け取り方法': { title: '受け取り方法', url: 'https://dummy-link.com/receive-method' },
+  '指定住所受取り': { title: '指定住所受取り', url: 'https://dummy-link.com/home-receive' },
+  '店舗受取り': { title: '店舗受取り', url: 'https://dummy-link.com/store-receive' },
+  'コンビニ受取り': { title: 'コンビニ受取り', url: 'https://dummy-link.com/conveni-receive' },
+  '配送日時の変更': { title: '配送日時の変更', url: 'https://dummy-link.com/datetime-change' },
+  '店舗受取り方法': { title: '店舗受取り方法', url: 'https://dummy-link.com/store-receive-method' },
+  'コンビニ受取り方法': { title: 'コンビニ受取り方法', url: 'https://dummy-link.com/conveni-receive-method' }
+};
 
 exports.handleLineWebhook = async (req, res) => {
   try {
@@ -25,7 +36,6 @@ exports.handleLineWebhook = async (req, res) => {
         return keywords.some(keyword => msg.includes(keyword));
       };
 
-      // --- 手入力で単に「配送」だけが来たら初期リセット ---
       if (isSimpleDeliveryWord(userMessage)) {
         session.phase = 'initial';
         sessionMap.set(userId, session);
@@ -36,19 +46,6 @@ exports.handleLineWebhook = async (req, res) => {
         continue;
       }
 
-      // --- 配送状況確認トリガー ---
-      if (userMessage.includes('配送状況確認') || userMessage.includes('配送状況') || userMessage.includes('配送追跡')) {
-        session.phase = '配送状況確認';
-        sessionMap.set(userId, session);
-        await sendQuickReply(event.replyToken, '配送状況についてですね。以下からお選びください。', [
-          { label: '配送予定日確認', text: '配送予定日確認' },
-          { label: '配送追跡', text: '配送追跡' },
-          { label: '店舗受け取り状況確認', text: '店舗受け取り状況確認' }
-        ]);
-        continue;
-      }
-
-      // --- 初期フェーズ：ご注文前／後選択 ---
       if (session.phase === 'initial') {
         if (userMessage === 'ご注文前') {
           session.phase = 'ご注文前';
@@ -76,107 +73,15 @@ exports.handleLineWebhook = async (req, res) => {
         }
       }
 
-      // --- ご注文前フェーズ ---
-      if (session.phase === 'ご注文前') {
-        const frontOrderKeywords = ['送料', 'お届け日の目安', '店舗受け取り', '配送日時の指定', '配送先の変更'];
-
-        if (matchKeyword(userMessage, frontOrderKeywords)) {
-          if (userMessage.includes('店舗受け取り')) {
-            session.phase = '店舗受け取り';
-            sessionMap.set(userId, session);
-            await sendQuickReply(event.replyToken, '店舗受け取りについてですね。以下からお選びください。', [
-              { label: '概要・送料', text: '概要・送料' },
-              { label: '注文手順', text: '注文手順' },
-              { label: 'お届け予定日', text: 'お届け予定日' },
-              { label: '受け取り方法', text: '受け取り方法' }
-            ]);
-            continue;
-          } else {
-            await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
-            sessionMap.delete(userId);
-            continue;
-          }
-        }
+      if (flexTargets[userMessage]) {
+        const { title, url } = flexTargets[userMessage];
+        await sendFlexMessage(event.replyToken, title, url);
+        sessionMap.delete(userId);
+        continue;
       }
 
-      // --- ご注文後フェーズ ---
-      if (session.phase === 'ご注文後') {
-        const afterOrderKeywords = ['配送予定日', '配送先の変更', '配送日時の変更', '受け取り手順'];
-
-        if (matchKeyword(userMessage, afterOrderKeywords)) {
-          if (userMessage.includes('配送予定日')) {
-            session.phase = '配送予定日';
-            sessionMap.set(userId, session);
-            await sendQuickReply(event.replyToken, '配送予定日についてですね。以下からお選びください。', [
-              { label: '指定住所受取り', text: '指定住所受取り' },
-              { label: '店舗受取り', text: '店舗受取り' },
-              { label: 'コンビニ受取り', text: 'コンビニ受取り' }
-            ]);
-            continue;
-          }
-
-          if (userMessage.includes('受け取り手順')) {
-            session.phase = '受け取り手順';
-            sessionMap.set(userId, session);
-            await sendQuickReply(event.replyToken, '受け取り手順についてですね。以下からお選びください。', [
-              { label: '店舗受取り方法', text: '店舗受取り方法' },
-              { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
-            ]);
-            continue;
-          }
-
-          const flexTargets = {
-            '配送先の変更': { title: '配送先の変更', url: 'https://dummy-link.com/address-change' },
-            '配送日時の変更': { title: '配送日時の変更', url: 'https://dummy-link.com/datetime-change' }
-          };
-
-          if (flexTargets[userMessage]) {
-            const { title, url } = flexTargets[userMessage];
-            await sendFlexMessage(event.replyToken, title, url);
-            sessionMap.delete(userId);
-            continue;
-          }
-        }
-      }
-
-      // --- 配送状況確認フェーズ ---
-      if (session.phase === '配送状況確認') {
-        if (matchKeyword(userMessage, ['配送予定日確認', '配送追跡', '店舗受け取り状況確認'])) {
-          await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
-          sessionMap.delete(userId);
-          continue;
-        }
-      }
-
-      // --- 店舗受取りフェーズ ---
-      if (session.phase === '店舗受け取り') {
-        if (matchKeyword(userMessage, ['概要・送料', '注文手順', 'お届け予定日', '受け取り方法'])) {
-          await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
-          sessionMap.delete(userId);
-          continue;
-        }
-      }
-
-      // --- 配送予定日フェーズ ---
-      if (session.phase === '配送予定日') {
-        if (matchKeyword(userMessage, ['指定住所受取り', '店舗受取り', 'コンビニ受取り'])) {
-          await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
-          sessionMap.delete(userId);
-          continue;
-        }
-      }
-
-      // --- 受け取り手順フェーズ ---
-      if (session.phase === '受け取り手順') {
-        if (matchKeyword(userMessage, ['店舗受取り方法', 'コンビニ受取り方法'])) {
-          await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
-          sessionMap.delete(userId);
-          continue;
-        }
-      }
-
-      // --- fallback ---
-      await sendTextMessage(event.replyToken, '申し訳ありません、もう一度選択してください。');
+      await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
+      sessionMap.delete(userId);
     }
 
     res.status(200).send('OK');
