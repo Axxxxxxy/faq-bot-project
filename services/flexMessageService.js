@@ -4,7 +4,7 @@ const { Client } = require('@line/bot-sdk');
 const config = require('../config/lineConfig');
 const client = new Client(config);
 
-// ▼ Flexメッセージ（罫線入りデザインでリンクボタンを表示）
+// ▼ Flexメッセージ送信（罫線入り）
 async function sendFlexMessage(replyToken, title, url) {
   const message = {
     type: 'flex',
@@ -39,8 +39,8 @@ async function sendFlexMessage(replyToken, title, url) {
         type: 'box',
         layout: 'vertical',
         spacing: 'sm',
-        borderColor: '#DDDDDD',
-        borderWidth: '1px', // ← 罫線ちゃんと付けてます！
+        borderColor: '#DDDDDD', // ← グレー罫線
+        borderWidth: '1px',     // ← 線の太さもOK
         paddingTop: '12px',
         contents: [
           {

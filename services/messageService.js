@@ -4,7 +4,7 @@ const { Client } = require('@line/bot-sdk');
 const config = require('../config/lineConfig');
 const client = new Client(config);
 
-// ▼ 通常のテキストメッセージを送る
+// ▼ 通常のテキストメッセージ送信
 async function sendTextMessage(replyToken, text) {
   await client.replyMessage(replyToken, {
     type: 'text',
@@ -12,7 +12,7 @@ async function sendTextMessage(replyToken, text) {
   });
 }
 
-// ▼ クイックリプライ付きのテキストメッセージを送る
+// ▼ クイックリプライ付きテキスト送信
 async function sendQuickReply(replyToken, text, quickReplies) {
   await client.replyMessage(replyToken, {
     type: 'text',
