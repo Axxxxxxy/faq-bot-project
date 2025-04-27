@@ -1,38 +1,33 @@
 // services/messageService.js
 
-const line = require('@line/bot-sdk');
+const { Client } = require('@line/bot-sdk');
+const config = require('../config/lineConfig');
+const client = new Client(config);
 
-const client = new line.Client({
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
-});
-
-/**
- * 通常のテキストメッセージ送信
- */
+// ▼ 通常のテキストメッセージを送る
 async function sendTextMessage(replyToken, text) {
-  const message = { type: 'text', text };
-  await client.replyMessage(replyToken, message);
+  await client.replyMessage(replyToken, {
+    type: 'text',
+    text: text
+  });
 }
 
-/**
- * クイックリプライメッセージ送信
- */
+// ▼ クイックリプライ付きのテキストメッセージを送る
 async function sendQuickReply(replyToken, text, quickReplies) {
-  const message = {
+  await client.replyMessage(replyToken, {
     type: 'text',
-    text,
+    text: text,
     quickReply: {
-      items: quickReplies.map(item => ({
+      items: quickReplies.map(q => ({
         type: 'action',
         action: {
           type: 'message',
-          label: item.label,
-          text: item.text
+          label: q.label,
+          text: q.text
         }
       }))
     }
-  };
-  await client.replyMessage(replyToken, message);
+  });
 }
 
 module.exports = {
