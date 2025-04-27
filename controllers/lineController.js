@@ -1,126 +1,119 @@
-const line = require('@line/bot-sdk');
-const {
-  createDeliveryStatusQuickReply,
-  createDefaultQuickReply
-} = require('../services/messageService');
-const {
-  createDeliveryStatusFlex,
-  createPurchaseHistoryFlex
-} = require('../services/flexMessageService');
+// lineController.js 完全版フルコード（配送フロー対応）
 
-const client = new line.Client({
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
-});
+const { sendTextMessage, sendQuickReply } = require('../services/messageService');
+const { sendFlexMessage } = require('../services/flexMessageService');
 
 exports.handleLineWebhook = async (req, res) => {
   try {
-    console.log('=== Webhook受信 ===');
-
-    // 署名検証
-    const signature = req.headers['x-line-signature'];
-    if (!line.validateSignature(JSON.stringify(req.body), process.env.LINE_CHANNEL_SECRET, signature)) {
-      console.error('署名検証失敗');
-      return res.status(401).send('Unauthorized');
-    }
-
     const events = req.body.events;
-    console.log('受信イベント:', JSON.stringify(events, null, 2));
 
     for (const event of events) {
-      if (event.type === 'message' && event.message.type === 'text') {
-        const userMessage = event.message.text;
-        const replyToken = event.replyToken;
-        console.log('ユーザー発言:', userMessage);
+      if (event.type !== 'message' || event.message.type !== 'text') continue;
 
-        if (!replyToken) {
-          console.log('無効なリプライトークン検出');
-          continue;
-        }
+      const userMessage = event.message.text.trim();
 
-        if (
-          userMessage.includes('配送') ||
-          userMessage.includes('届かない') ||
-          userMessage.includes('配達') ||
-          userMessage.includes('受け取り')
-        ) {
-          console.log('配送関連ワードを検出しました');
-
-          const flexMessage = createDeliveryStatusFlex(); // Flexメッセージを生成
-          await client.replyMessage(replyToken, flexMessage); // 直接Flexを返す
-          console.log('配送状況Flexメッセージ送信完了');
-          continue;
-        }
-
-        if (userMessage.includes('購入履歴') || userMessage.includes('注文履歴')) {
-          console.log('購入履歴関連ワードを検出しました');
-
-          const flexMessage = createPurchaseHistoryFlex(); // Flexメッセージを生成
-          await client.replyMessage(replyToken, flexMessage);
-          console.log('購入履歴Flexメッセージ送信完了');
-          continue;
-        }
-
-        console.log('配送・購入履歴以外の通常応答 → クイックリプライ');
-
-        await client.replyMessage(replyToken, {
-          type: 'text',
-          text: '申し訳ありません、うまく認識できませんでした。もう一度メニューから選択してください。',
-          quickReply: createDefaultQuickReply()
-        });
+      // ▼ 配送キーワード判定
+      if (userMessage.includes('配送')) {
+        await sendQuickReply(event.replyToken, '配送に関するお問い合わせですね。ご注文前・ご注文後どちらでしょうか？', [
+          { label: 'ご注文前', text: 'ご注文前' },
+          { label: 'ご注文後', text: 'ご注文後' }
+        ]);
+        continue;
       }
 
-      if (event.type === 'postback') {
-        console.log('Postbackイベント受信:', event.postback.data);
-
-        const postbackData = event.postback.data;
-        let messages = [];
-
-        if (postbackData === 'delivery_timing_inquiry') {
-          messages = [
-            {
-              type: 'text',
-              text: '配送予定日はご注文履歴ページよりご確認いただけます。'
-            }
-          ];
-        } else if (postbackData === 'delivery_status_inquiry') {
-          messages = [
-            {
-              type: 'text',
-              text: '配送状況は配送業者の追跡ページからご確認ください。'
-            }
-          ];
-        } else if (postbackData === 'store_pickup_inquiry') {
-          messages = [
-            {
-              type: 'text',
-              text: '店舗受取商品はご購入履歴ページから確認できます。'
-            }
-          ];
-        } else {
-          messages = [
-            {
-              type: 'text',
-              text: '恐れ入りますが、もう一度メニューから選び直してください。'
-            }
-          ];
-        }
-
-        await client.replyMessage(event.replyToken, messages);
-        console.log('Postback応答送信成功');
+      // ▼ ご注文前
+      if (userMessage.includes('ご注文前')) {
+        await sendQuickReply(event.replyToken, 'ご注文前のお問い合わせですね。以下からお選びください。', [
+          { label: '送料', text: '送料' },
+          { label: 'お届け日の目安', text: 'お届け日の目安' },
+          { label: '店舗受け取り', text: '店舗受け取り' },
+          { label: '配送日時の指定', text: '配送日時の指定' },
+          { label: '配送先の変更', text: '配送先の変更' }
+        ]);
+        continue;
       }
+
+      // ▼ ご注文後
+      if (userMessage.includes('ご注文後')) {
+        await sendQuickReply(event.replyToken, 'ご注文後のお問い合わせですね。以下からお選びください。', [
+          { label: '配送予定日', text: '配送予定日' },
+          { label: '配送先の変更', text: '配送先の変更' },
+          { label: '配送日時の変更', text: '配送日時の変更' },
+          { label: '受け取り手順', text: '受け取り手順' }
+        ]);
+        continue;
+      }
+
+      // ▼ 店舗受け取り（ご注文前の分岐）
+      if (userMessage.includes('店舗受け取り')) {
+        await sendQuickReply(event.replyToken, '店舗受け取りについてですね。以下からお選びください。', [
+          { label: '概要・送料', text: '概要・送料' },
+          { label: '注文手順', text: '注文手順' },
+          { label: 'お届け予定日', text: 'お届け予定日' },
+          { label: '受け取り方法', text: '受け取り方法' }
+        ]);
+        continue;
+      }
+
+      // ▼ 配送予定日（ご注文後から分岐）
+      if (userMessage.includes('配送予定日')) {
+         await sendQuickReply(event.replyToken, '配送予定日についてですね。以下からお選びください。', [
+           { label: '指定住所受け取り', text: '指定住所受け取り' },
+           { label: '店舗受取り方法', text: '店舗受取り方法' },
+           { label: 'コンビニ受取り', text: 'コンビニ受取り' }
+         ]);
+        continue;
+      }
+
+      // ▼ 受け取り手順（ご注文後から分岐）
+      if (userMessage.includes('受け取り手順')) {
+        await sendQuickReply(event.replyToken, '受け取り手順についてですね。以下からお選びください。', [
+          { label: '店舗受取り方法', text: '店舗受取り方法' },
+          { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
+        ]);
+        continue;
+      }
+
+      // ▼ Flexメッセージ対象（リンク付き回答）
+      const flexTargets = {
+        '注文手順': { title: '店舗受け取り注文手順', url: 'https://dummy-link.com/store-order' },
+        '受け取り方法': { title: '店舗受け取り方法', url: 'https://dummy-link.com/store-pickup' },
+        '指定住所受取り': { title: '指定住所受取り', url: 'https://dummy-link.com/address-pickup' },
+        '店舗受取り方法': { title: '店舗受取り方法', url: 'https://dummy-link.com/store-pickup-method' },
+        'コンビニ受取り': { title: 'コンビニ受取り', url: 'https://dummy-link.com/convenience-pickup' },
+        '配送日時の変更': { title: '配送日時の変更', url: 'https://dummy-link.com/address-change' },
+        '店舗受取り方法': { title: '配店舗受取り方法', url: 'https://dummy-link.com/datetime-change' },
+        'コンビニ受取り方法': { title: 'コンビニ受取り方法', url: 'https://dummy-link.com/convenience-method' }
+      };
+
+      if (flexTargets[userMessage]) {
+        const { title, url } = flexTargets[userMessage];
+        await sendFlexMessage(event.replyToken, title, url);
+        continue;
+      }
+
+      // ▼ その他の単純なテキスト回答
+      const textReplies = {
+        '送料': '送料に関するご案内です。',
+        'お届け日の目安': 'お届け日の目安に関するご案内です。',
+        '概要・送料': '店舗受け取りに関する概要・送料についてご案内します。',
+        'お届け予定日': 'お届け予定日に関する概要・送料についてご案内します。',
+        '配送日時の指定': '配送日時の指定に関するご案内です。',
+        '配送先の変更': '配送先の変更に関するご案内です。'
+      };
+
+      if (textReplies[userMessage]) {
+        await sendTextMessage(event.replyToken, textReplies[userMessage]);
+        continue;
+      }
+
+      // ▼ fallback（どれにも該当しない場合）
+      await sendTextMessage(event.replyToken, '申し訳ありません、もう一度選択してください。');
     }
 
     res.status(200).send('OK');
   } catch (error) {
-    console.error('=== Webhookエラーハンドリング開始 ===');
-    if (req && req.body) {
-      console.error('リクエストボディ:', JSON.stringify(req.body, null, 2));
-    }
-    console.error('エラー内容:', typeof error === 'object' ? JSON.stringify(error, null, 2) : error);
-    if (error && error.stack) {
-      console.error('エラースタック:', error.stack);
-    }
-    console.error('=== Webhookエラーハンドリング終了 ===');
+    console.error('Webhook error:', error);
     res.status(500).send('Internal Server Error');
   }
 };
