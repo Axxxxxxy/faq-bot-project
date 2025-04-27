@@ -1,0 +1,41 @@
+// services/embeddingService.js
+
+const axios = require('axios');
+const { openai } = require('../config/config'); // configからAPIキー取得
+
+/**
+ * ユーザー入力のEmbeddingベクトルを取得
+ * @param {string} text ユーザーの入力テキスト
+ * @returns {Promise<Array<number>>} ベクトル配列
+ */
+async function getEmbedding(text) {
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/embeddings',
+      {
+        model: 'text-embedding-ada-002',
+        input: text
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${openai.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 1500 // タイムアウト設定（1.5秒以内応答なければエラー扱い）
+      }
+    );
+
+    if (response.data && response.data.data && response.data.data[0].embedding) {
+      return response.data.data[0].embedding;
+    } else {
+      throw new Error('Embedding APIレスポンス異常');
+    }
+  } catch (error) {
+    console.error('Embedding APIエラー:', error.message);
+    throw new Error('Embedding取得失敗');
+  }
+}
+
+module.exports = {
+  getEmbedding
+};
