@@ -1,9 +1,8 @@
-// 最終版 lineController.js（ユニクロ式＋配送ワードリセット＋文脈通過型）
+// 本物のユニクロ式 lineController.js（配送ワード柔軟対応版）
 
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
 
-// 仮想セッション管理（超簡易版・メモリ保持）
 const sessionMap = new Map();
 
 exports.handleLineWebhook = async (req, res) => {
@@ -17,8 +16,13 @@ exports.handleLineWebhook = async (req, res) => {
       const userMessage = event.message.text.trim();
       let session = sessionMap.get(userId) || { phase: 'initial' };
 
-      // --- 「配送」ワードが来たらいつでもリセット ---
-      if (userMessage.includes('配送')) {
+      const isSimpleDeliveryWord = (msg) => {
+        const cleaned = msg.replace(/[\s\n\r]/g, '');
+        return cleaned === '配送';
+      };
+
+      // --- 手入力で単に「配送」だけが来たら初期リセット ---
+      if (isSimpleDeliveryWord(userMessage)) {
         session.phase = 'initial';
         sessionMap.set(userId, session);
         await sendQuickReply(event.replyToken, '配送に関するお問い合わせですね。ご注文前・ご注文後どちらでしょうか？', [
@@ -28,7 +32,7 @@ exports.handleLineWebhook = async (req, res) => {
         continue;
       }
 
-      // --- 初回：注文前・注文後の選択肢 ---
+      // --- 通常フェーズ管理 ---
       if (session.phase === 'initial') {
         if (userMessage === 'ご注文前') {
           session.phase = 'ご注文前';
@@ -56,7 +60,6 @@ exports.handleLineWebhook = async (req, res) => {
         }
       }
 
-      // --- ご注文前フェーズ ---
       if (session.phase === 'ご注文前') {
         const textReplies = {
           '送料': '送料に関するご案内です。',
@@ -86,7 +89,6 @@ exports.handleLineWebhook = async (req, res) => {
         }
       }
 
-      // --- ご注文後フェーズ ---
       if (session.phase === 'ご注文後') {
         if (userMessage === '配送予定日') {
           await sendQuickReply(event.replyToken, '配送予定日についてですね。以下からお選びください。', [
@@ -120,7 +122,7 @@ exports.handleLineWebhook = async (req, res) => {
         }
       }
 
-      // --- fallback（どれにも該当しない場合） ---
+      // --- fallback ---
       await sendTextMessage(event.replyToken, '申し訳ありません、もう一度選択してください。');
     }
 
