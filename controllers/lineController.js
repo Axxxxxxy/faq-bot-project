@@ -1,10 +1,12 @@
 const line = require('@line/bot-sdk');
 const {
   createDeliveryStatusQuickReply,
-  createDeliveryTimingResponse,
-  createDeliveryStatusResponse,
-  createStorePickupResponse
+  createDefaultQuickReply
 } = require('../services/messageService');
+const {
+  createDeliveryStatusFlex,
+  createPurchaseHistoryFlex
+} = require('../services/flexMessageService');
 
 const client = new line.Client({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
@@ -13,14 +15,14 @@ const client = new line.Client({
 exports.handleLineWebhook = async (req, res) => {
   try {
     console.log('=== Webhook受信 ===');
-    
+
     // 署名検証
     const signature = req.headers['x-line-signature'];
     if (!line.validateSignature(JSON.stringify(req.body), process.env.LINE_CHANNEL_SECRET, signature)) {
       console.error('署名検証失敗');
       return res.status(401).send('Unauthorized');
     }
-    
+
     const events = req.body.events;
     console.log('受信イベント:', JSON.stringify(events, null, 2));
 
@@ -42,59 +44,28 @@ exports.handleLineWebhook = async (req, res) => {
           userMessage.includes('受け取り')
         ) {
           console.log('配送関連ワードを検出しました');
-          const replyPayload = createDeliveryStatusQuickReply(replyToken);
-          console.log('クイックリプライ送信準備');
-          await client.replyMessage(replyPayload.replyToken, replyPayload.messages);
-          console.log('クイックリプライ送信成功');
+
+          const flexMessage = createDeliveryStatusFlex(); // Flexメッセージを生成
+          await client.replyMessage(replyToken, flexMessage); // 直接Flexを返す
+          console.log('配送状況Flexメッセージ送信完了');
           continue;
         }
 
-        console.log('配送ワード以外の通常応答 → クイックリプライ');
+        if (userMessage.includes('購入履歴') || userMessage.includes('注文履歴')) {
+          console.log('購入履歴関連ワードを検出しました');
 
-        // ノーマッチ時にクイックリプライ返す
+          const flexMessage = createPurchaseHistoryFlex(); // Flexメッセージを生成
+          await client.replyMessage(replyToken, flexMessage);
+          console.log('購入履歴Flexメッセージ送信完了');
+          continue;
+        }
+
+        console.log('配送・購入履歴以外の通常応答 → クイックリプライ');
+
         await client.replyMessage(replyToken, {
           type: 'text',
           text: '申し訳ありません、うまく認識できませんでした。もう一度メニューから選択してください。',
-          quickReply: {
-            items: [
-              {
-                type: 'action',
-                action: { type: 'message', label: '注文・キャンセル', text: '注文・キャンセル' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '商品をさがす', text: '商品をさがす' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '商品サイズ', text: '商品サイズ' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '送料・配送', text: '送料・配送' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '返品・交換', text: '返品・交換' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '支払い方法', text: '支払い方法' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: '会員登録・ログイン', text: '会員登録・ログイン' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: 'クーポン・キャンペーン', text: 'クーポン・キャンペーン' }
-              },
-              {
-                type: 'action',
-                action: { type: 'message', label: 'よくある質問', text: 'よくある質問' }
-              }
-            ]
-          }
+          quickReply: createDefaultQuickReply()
         });
       }
 
@@ -105,16 +76,33 @@ exports.handleLineWebhook = async (req, res) => {
         let messages = [];
 
         if (postbackData === 'delivery_timing_inquiry') {
-          messages = createDeliveryTimingResponse();
+          messages = [
+            {
+              type: 'text',
+              text: '配送予定日はご注文履歴ページよりご確認いただけます。'
+            }
+          ];
         } else if (postbackData === 'delivery_status_inquiry') {
-          messages = createDeliveryStatusResponse();
+          messages = [
+            {
+              type: 'text',
+              text: '配送状況は配送業者の追跡ページからご確認ください。'
+            }
+          ];
         } else if (postbackData === 'store_pickup_inquiry') {
-          messages = createStorePickupResponse();
+          messages = [
+            {
+              type: 'text',
+              text: '店舗受取商品はご購入履歴ページから確認できます。'
+            }
+          ];
         } else {
-          messages = [{
-            type: 'text',
-            text: '恐れ入りますが、もう一度メニューから選び直してください。'
-          }];
+          messages = [
+            {
+              type: 'text',
+              text: '恐れ入りますが、もう一度メニューから選び直してください。'
+            }
+          ];
         }
 
         await client.replyMessage(event.replyToken, messages);
