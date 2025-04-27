@@ -43,6 +43,7 @@ async function sendFlexMessage(replyToken, title, url) {
         type: 'box',
         layout: 'vertical',
         spacing: 'sm',
+        borderWidth: "0.5px",
         contents: [
           {
             type: 'button',

@@ -76,7 +76,7 @@ exports.handleLineWebhook = async (req, res) => {
 
       // ▼ Flexメッセージ対象（リンク付き回答）
       const flexTargets = {
-        '注文手順': { title: '店舗受け取り注文手順', url: 'https://dummy-link.com/store-order' },
+        '注文手順': { title: '注文手順', url: 'https://dummy-link.com/store-order' },
         '受け取り方法': { title: '店舗受け取り方法', url: 'https://dummy-link.com/store-pickup' },
         '指定住所受取り': { title: '指定住所受取り', url: 'https://dummy-link.com/address-pickup' },
         '店舗受取り方法': { title: '店舗受取り方法', url: 'https://dummy-link.com/store-pickup-method' },
