@@ -1,4 +1,4 @@
-// lineController.js（設計図完全準拠＋Embedding意味判定版）
+// lineController.js
 
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
@@ -16,25 +16,14 @@ const flexTargets = {
   '配送日時の変更': { title: '配送日時の変更', url: 'https://dummy-link.com/datetime-change' }
 };
 
-// 配送状況系ワード集（Embedding対象）
+// Embedding対象ワードリスト
 const deliveryStatusKeywords = [
   '配送状況', '配送追跡', '送り状番号', '問い合わせ番号', '追跡番号',
   'どこにある', '届く予定', '配達状況', 'いつ', '状況', 'ステータス'
 ];
 
+// 配送状況キーワードのEmbedding（初回のみロード）
 let deliveryStatusEmbeddings = [];
-
-// 起動時にEmbeddingベクトル事前取得
-(async () => {
-  try {
-    deliveryStatusEmbeddings = await Promise.all(
-      deliveryStatusKeywords.map(keyword => getEmbedding(keyword))
-    );
-    console.log('配送状況Embedding準備完了');
-  } catch (error) {
-    console.error('配送状況Embedding準備失敗:', error.message);
-  }
-})();
 
 exports.handleLineWebhook = async (req, res) => {
   try {
@@ -49,6 +38,19 @@ exports.handleLineWebhook = async (req, res) => {
 
       const isSimpleDeliveryWord = (msg) => msg.replace(/[\s\n\r]/g, '') === '配送';
 
+      // 📍 初回アクセス時にのみEmbeddingロード
+      if (deliveryStatusEmbeddings.length === 0) {
+        try {
+          console.log('Embeddingロード開始...');
+          deliveryStatusEmbeddings = await Promise.all(
+            deliveryStatusKeywords.map(keyword => getEmbedding(keyword))
+          );
+          console.log('配送状況Embedding初期ロード完了');
+        } catch (error) {
+          console.error('配送状況Embedding初期ロード失敗:', error.message);
+        }
+      }
+
       // ① 「配送」単語だけなら初期フェーズに誘導
       if (isSimpleDeliveryWord(userMessage)) {
         session.phase = 'initial';
@@ -60,7 +62,7 @@ exports.handleLineWebhook = async (req, res) => {
         continue;
       }
 
-      // ② session.phaseに応じた通常の分岐
+      // ② 通常のフェーズ分岐
       if (session.phase === 'initial') {
         if (userMessage === 'ご注文前') {
           session.phase = 'ご注文前';
@@ -120,7 +122,7 @@ exports.handleLineWebhook = async (req, res) => {
         continue;
       }
 
-      // ③ Flex対象リンク送信
+      // ③ Flexリンク送信
       if (flexTargets[userMessage]) {
         const { title, url } = flexTargets[userMessage];
         await sendFlexMessage(event.replyToken, title, url);
@@ -128,7 +130,7 @@ exports.handleLineWebhook = async (req, res) => {
         continue;
       }
 
-      // ④ 🔥 Embedding判定（配送状況系自然言語吸収）
+      // ④ 🔥 Embedding意味判定
       try {
         const userEmbedding = await getEmbedding(userMessage);
 
@@ -150,10 +152,9 @@ exports.handleLineWebhook = async (req, res) => {
         }
       } catch (embeddingError) {
         console.error('Embedding判定失敗:', embeddingError.message);
-        // 無理に止めず通常フォールバック
       }
 
-      // ⑤ Fallback通常応答
+      // ⑤ 最後のフォールバック
       await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
       sessionMap.delete(userId);
     }
