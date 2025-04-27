@@ -2,5 +2,9 @@
 require('dotenv').config();
 
 module.exports = {
-  openaiApiKey: process.env.OPENAI_API_KEY
-};
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY
+    },
+    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+    channelSecret: process.env.LINE_CHANNEL_SECRET
+  };
