@@ -1,7 +1,6 @@
 // services/embeddingService.js
 
 const axios = require('axios');
-const { openaiApiKey } = require('../config/config'); // 修正！単独キーで読み込み
 
 /**
  * ユーザー入力のEmbeddingベクトルを取得
@@ -10,6 +9,9 @@ const { openaiApiKey } = require('../config/config'); // 修正！単独キー�
  */
 async function getEmbedding(text) {
   try {
+    const apiKey = process.env.OPENAI_API_KEY; // 🔥 ここで直接読む！
+    if (!apiKey) throw new Error('OpenAI APIキーが未設定です');
+
     const response = await axios.post(
       'https://api.openai.com/v1/embeddings',
       {
@@ -18,10 +20,10 @@ async function getEmbedding(text) {
       },
       {
         headers: {
-          Authorization: `Bearer ${openaiApiKey}`, // 修正！ここも単独キーを使用
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: 1500 // タイムアウト設定（1.5秒以内に応答なければエラー）
+        timeout: 1500
       }
     );
 
