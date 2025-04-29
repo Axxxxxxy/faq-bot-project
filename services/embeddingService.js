@@ -4,7 +4,6 @@ const axios = require('axios');
 const path = require('path');
 const faqEmbeddings = require('../cache/faqEmbeddings.json');
 const faqDatabase = require('../cache/faqDatabase.json'); // 追加: キーワード保持用
-const { getEmbedding } = require('../services/openaiService'); // 外部化してる場合のみ使用
 
 // OpenAI Embedding APIを呼び出してEmbeddingを取得する関数
 async function getEmbedding(text) {
@@ -34,10 +33,10 @@ async function getEmbedding(text) {
   }
 }
 
-// ユーザー入力からEmbeddingを取得してキャッシュと比較する形式（Dialogflow的解釈）
+// ユーザー入力からEmbeddingを取得し、呼び元で比較処理する形式
 async function getEmbeddingFromCache(userInput) {
   const userEmbedding = await getEmbedding(userInput);
-  return userEmbedding; // 呼び元で比較処理を行う
+  return userEmbedding;
 }
 
 module.exports = {
