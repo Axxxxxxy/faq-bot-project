@@ -1,14 +1,13 @@
-// lineController.js
+// lineController.js（Dialogflow形式対応）
 
-// 必要なサービスをインポート
 const { sendTextMessage, sendQuickReply } = require('../services/messageService');
 const { sendFlexMessage } = require('../services/flexMessageService');
 const { getEmbeddingFromCache } = require('../services/embeddingService');
 const { calculateCosineSimilarity } = require('../utils/similarity');
-
 const sessionMap = new Map();
-const flexTargets = { /* ... Flexターゲット定義 ... */ };
-const faqDatabase = [ /* ... FAQデータベース ... */ ];
+
+const flexTargets = require('../cache/flexTargets.json');
+const faqDatabase = require('../cache/faqDatabase.json');
 const faqEmbeddings = require('../cache/faqEmbeddings.json');
 
 exports.handleLineWebhook = async (req, res) => {
@@ -16,6 +15,7 @@ exports.handleLineWebhook = async (req, res) => {
     const events = req.body.events;
     for (const event of events) {
       if (event.type !== 'message' || event.message.type !== 'text') continue;
+
       const userId = event.source.userId;
       const userMessage = event.message.text.trim();
       let session = sessionMap.get(userId) || { phase: 'initial' };
@@ -28,7 +28,6 @@ exports.handleLineWebhook = async (req, res) => {
           { label: 'ご注文前', text: 'ご注文前' },
           { label: 'ご注文後', text: 'ご注文後' }
         ]);
-        continue;
       }
 
       if (session.phase === 'initial') {
@@ -42,7 +41,6 @@ exports.handleLineWebhook = async (req, res) => {
             { label: '配送日時の指定', text: '配送日時の指定' },
             { label: '配送先の変更', text: '配送先の変更' }
           ]);
-          continue;
         }
         if (userMessage === 'ご注文後') {
           session.phase = 'ご注文後';
@@ -53,7 +51,6 @@ exports.handleLineWebhook = async (req, res) => {
             { label: '配送日時の変更', text: '配送日時の変更' },
             { label: '受け取り手順', text: '受け取り手順' }
           ]);
-          continue;
         }
       }
 
@@ -66,7 +63,6 @@ exports.handleLineWebhook = async (req, res) => {
           { label: 'お届け予定日', text: 'お届け予定日' },
           { label: '受け取り方法', text: '受け取り方法' }
         ]);
-        continue;
       }
 
       if (session.phase === 'ご注文後' && userMessage === '配送予定日') {
@@ -77,7 +73,6 @@ exports.handleLineWebhook = async (req, res) => {
           { label: '店舗受取り方法', text: '店舗受取り方法' },
           { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
         ]);
-        continue;
       }
 
       if (session.phase === 'ご注文後' && userMessage === '受け取り手順') {
@@ -87,17 +82,17 @@ exports.handleLineWebhook = async (req, res) => {
           { label: '店舗受取り方法', text: '店舗受取り方法' },
           { label: 'コンビニ受取り方法', text: 'コンビニ受取り方法' }
         ]);
-        continue;
       }
 
+      // 🔄 Flexターゲットにマッチする場合は送信
       if (flexTargets[userMessage]) {
         const { title, url } = flexTargets[userMessage];
         await sendFlexMessage(event.replyToken, title, url);
         sessionMap.delete(userId);
-        continue;
+        return;
       }
 
-      // 最後にFAQジャンプ判定（キャッシュされたEmbedding使用）
+      // 🔍 Dialogflow形式：常にEmbedding類似度を確認しジャンプ可能にする
       try {
         const userEmbedding = await getEmbeddingFromCache(userMessage);
         let bestSimilarity = 0;
@@ -119,12 +114,13 @@ exports.handleLineWebhook = async (req, res) => {
             await sendTextMessage(event.replyToken, matchedFaq.payload.text);
           }
           sessionMap.delete(userId);
-          continue;
+          return;
         }
-      } catch (error) {
-        console.error('Embedding FAQジャンプ失敗:', error.message);
+      } catch (embeddingError) {
+        console.error('Embedding類似度検索エラー:', embeddingError.message);
       }
 
+      // 何にもマッチしなければフォールバック応答
       await sendTextMessage(event.replyToken, `${userMessage}に関するご案内です。`);
       sessionMap.delete(userId);
     }

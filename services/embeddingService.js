@@ -3,6 +3,8 @@
 const axios = require('axios');
 const path = require('path');
 const faqEmbeddings = require('../cache/faqEmbeddings.json');
+const faqDatabase = require('../cache/faqDatabase.json'); // 追加: キーワード保持用
+const { getEmbedding } = require('../services/openaiService'); // 外部化してる場合のみ使用
 
 // OpenAI Embedding APIを呼び出してEmbeddingを取得する関数
 async function getEmbedding(text) {
@@ -32,10 +34,10 @@ async function getEmbedding(text) {
   }
 }
 
-// キャッシュから直接Embeddingを取得するダミー関数（今はOpenAIコールは不要）
-async function getEmbeddingFromCache(text) {
-  // 簡易ダミー：textの文字列を単純にEmbeddingベクトル化（テスト用）
-  return Array(faqEmbeddings[0].length).fill(Math.random());
+// ユーザー入力からEmbeddingを取得してキャッシュと比較する形式（Dialogflow的解釈）
+async function getEmbeddingFromCache(userInput) {
+  const userEmbedding = await getEmbedding(userInput);
+  return userEmbedding; // 呼び元で比較処理を行う
 }
 
 module.exports = {
