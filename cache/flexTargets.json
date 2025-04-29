@@ -1,0 +1,35 @@
+{
+    "注文手順": {
+      "title": "注文手順のご案内",
+      "url": "https://example.com/order-flow"
+    },
+    "受け取り方法": {
+      "title": "受け取り方法について",
+      "url": "https://example.com/receive-method"
+    },
+    "指定住所受取り": {
+      "title": "指定住所での受け取り方法",
+      "url": "https://example.com/home-delivery"
+    },
+    "店舗受取り": {
+      "title": "店舗での受け取り案内",
+      "url": "https://example.com/store-pickup"
+    },
+    "コンビニ受取り": {
+      "title": "コンビニ受け取りについて",
+      "url": "https://example.com/conveni-pickup"
+    },
+    "配送日時の変更": {
+      "title": "配送日時変更について",
+      "url": "https://example.com/change-delivery-date"
+    },
+    "店舗受取り方法": {
+      "title": "店舗受け取り方法詳細",
+      "url": "https://example.com/store-receive-method"
+    },
+    "コンビニ受取り方法": {
+      "title": "コンビニ受け取り方法詳細",
+      "url": "https://example.com/conveni-receive-method"
+    }
+  }
+  
