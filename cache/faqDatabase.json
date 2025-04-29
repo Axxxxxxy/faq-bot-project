@@ -1,0 +1,16 @@
+[
+    {
+      "type": "text",
+      "payload": {
+        "text": "ご注文手順はこちらをご覧ください。"
+      }
+    },
+    {
+      "type": "flex",
+      "payload": {
+        "title": "送料とお届け日",
+        "url": "https://example.com/shipping-info"
+      }
+    }
+  ]
+  
