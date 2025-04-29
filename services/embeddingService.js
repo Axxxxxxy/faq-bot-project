@@ -1,9 +1,7 @@
 // embeddingService.js
 
 const axios = require('axios');
-const path = require('path');
 const faqEmbeddings = require('../cache/faqEmbeddings.json');
-const faqDatabase = require('../cache/faqDatabase.json'); // 追加: キーワード保持用
 
 // OpenAI Embedding APIを呼び出してEmbeddingを取得する関数
 async function getEmbedding(text) {
@@ -33,10 +31,10 @@ async function getEmbedding(text) {
   }
 }
 
-// ユーザー入力からEmbeddingを取得し、呼び元で比較処理する形式
-async function getEmbeddingFromCache(userInput) {
-  const userEmbedding = await getEmbedding(userInput);
-  return userEmbedding;
+// ユーザー入力からEmbeddingを取得して、呼び元（lineController.js）でFAQとの比較に使う形式
+async function getEmbeddingFromCache(text) {
+  const embedding = await getEmbedding(text);
+  return embedding;
 }
 
 module.exports = {
